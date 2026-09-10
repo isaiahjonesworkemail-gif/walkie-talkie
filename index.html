@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Channel — Walkie Talkie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+<style>
+  :root{
+    --base:#1B1D1E;
+    --panel:#232628;
+    --panel-raised:#2B2F31;
+    --line: rgba(237,234,227,0.09);
+    --amber:#E8A33D;
+    --amber-dim: rgba(232,163,61,0.18);
+    --green:#4CAF6D;
+    --red:#D9634A;
+    --text:#EDEAE3;
+    --text-dim:#9A9D9E;
+    --text-faint:#6C6F70;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background: radial-gradient(circle at 50% 0%, #212425 0%, #1B1D1E 60%);
+    color:var(--text);
+    font-family:'Space Grotesk', system-ui, sans-serif;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding: 24px 16px;
+    user-select:none;
+  }
+  .unit{
+    width:100%;
+    max-width:380px;
+    background: linear-gradient(180deg, var(--panel-raised), var(--panel));
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow:
+      0 30px 60px -20px rgba(0,0,0,0.6),
+      inset 0 1px 0 rgba(255,255,255,0.04);
+    padding: 20px;
+    position:relative;
+    overflow:hidden;
+  }
+  .unit::before{
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:1px;
+    background: linear-gradient(90deg, transparent, rgba(232,163,61,0.5), transparent);
+  }
+
+  /* ---- Screens ---- */
+  .screen{ display:none; }
+  .screen.active{ display:block; }
+
+  /* Join screen */
+  .brand{
+    font-size:13px;
+    letter-spacing:0.02em;
+    color:var(--text-dim);
+    margin-bottom:2px;
+  }
+  h1{
+    font-size:26px;
+    font-weight:700;
+    margin:0 0 20px 0;
+    letter-spacing:-0.01em;
+  }
+  label{
+    display:block;
+    font-size:12.5px;
+    color:var(--text-dim);
+    margin-bottom:6px;
+  }
+  .field{ margin-bottom:16px; }
+  input[type=text]{
+    width:100%;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--line);
+    border-radius:10px;
+    padding: 13px 14px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:16px;
+    outline:none;
+    transition: border-color 0.15s;
+  }
+  input[type=text]:focus{ border-color: var(--amber); }
+  .btn{
+    width:100%;
+    border:none;
+    border-radius:10px;
+    padding:14px;
+    font-family:inherit;
+    font-size:15.5px;
+    font-weight:600;
+    cursor:pointer;
+    transition: transform 0.08s ease, filter 0.15s;
+  }
+  .btn:active{ transform: scale(0.98); }
+  .btn-primary{ background: var(--amber); color:#1B1D1E; }
+  .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-primary:disabled{ opacity:0.5; cursor:default; }
+  .btn-ghost{
+    background:transparent;
+    color:var(--text-dim);
+    border:1px solid var(--line);
+    margin-top:10px;
+  }
+  .status-line{
+    font-size:13px;
+    color:var(--text-faint);
+    margin-top:14px;
+    min-height:18px;
+    text-align:center;
+  }
+
+  /* Channel screen */
+  .top-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    margin-bottom:22px;
+  }
+  .channel-name{
+    font-size:22px;
+    font-weight:700;
+    letter-spacing:-0.01em;
+  }
+  .channel-sub{
+    font-size:12.5px;
+    color:var(--text-dim);
+    margin-top:3px;
+  }
+  .leave-btn{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    border-radius:8px;
+    padding:7px 12px;
+    font-family:inherit;
+    font-size:12.5px;
+    cursor:pointer;
+  }
+  .leave-btn:hover{ border-color: var(--red); color: var(--red); }
+
+  /* Meter */
+  .meter{
+    height:44px;
+    background:rgba(0,0,0,0.3);
+    border-radius:10px;
+    border:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:3px;
+    margin-bottom:26px;
+    padding:0 14px;
+  }
+  .meter-bar{
+    width:4px;
+    height:6px;
+    background: var(--text-faint);
+    border-radius:2px;
+    transition: height 0.1s ease, background 0.1s ease;
+  }
+  .meter.live .meter-bar{ background: var(--amber); }
+
+  /* PTT button */
+  .ptt-wrap{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    margin-bottom: 26px;
+  }
+  .ptt{
+    width:168px;
+    height:168px;
+    border-radius:50%;
+    border: none;
+    background: radial-gradient(circle at 35% 30%, #34383A, #26292A 70%);
+    box-shadow:
+      0 10px 24px rgba(0,0,0,0.5),
+      inset 0 1px 1px rgba(255,255,255,0.08),
+      inset 0 -8px 16px rgba(0,0,0,0.35),
+      0 0 0 6px rgba(0,0,0,0.2);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    position:relative;
+    touch-action: none;
+  }
+  .ptt-label{
+    font-size:14px;
+    font-weight:600;
+    letter-spacing:0.03em;
+    color:var(--text-dim);
+    pointer-events:none;
+  }
+  .ptt.active{
+    background: radial-gradient(circle at 35% 30%, #5a4326, #E8A33D 140%);
+    box-shadow:
+      0 10px 30px rgba(232,163,61,0.35),
+      inset 0 1px 1px rgba(255,255,255,0.15),
+      inset 0 -8px 16px rgba(0,0,0,0.25),
+      0 0 0 6px rgba(232,163,61,0.12);
+  }
+  .ptt.active .ptt-label{ color:#1B1D1E; }
+  .ptt-hint{
+    margin-top:14px;
+    font-size:12.5px;
+    color:var(--text-faint);
+  }
+
+  /* Members */
+  .members-label{
+    font-size:12px;
+    color:var(--text-faint);
+    margin-bottom:10px;
+  }
+  .members{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .member{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    background: rgba(0,0,0,0.25);
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:6px 12px 6px 8px;
+    font-size:13px;
+    color:var(--text-dim);
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .member .dot{
+    width:8px; height:8px; border-radius:50%;
+    background: var(--text-faint);
+  }
+  .member.speaking{ border-color: var(--green); color:var(--text); }
+  .member.speaking .dot{ background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .member.self{ border-style:dashed; }
+
+  /* Invite row */
+  .invite-row{
+    margin-top:20px;
+    display:flex;
+    gap:8px;
+  }
+  .invite-row .btn{ font-size:13px; padding:11px; }
+
+  .footnote{
+    text-align:center;
+    font-size:11.5px;
+    color:var(--text-faint);
+    margin-top:16px;
+    line-height:1.5;
+  }
+</style>
+</head>
+<body>
+
+<div class="unit">
+
+  <!-- JOIN SCREEN -->
+  <div class="screen active" id="joinScreen">
+    <div class="brand">CHANNEL</div>
+    <h1>Walkie Talkie</h1>
+
+    <div class="field">
+      <label for="nameInput">Your name</label>
+      <input type="text" id="nameInput" placeholder="e.g. Sam" maxlength="20">
+    </div>
+
+    <div class="field">
+      <label for="channelInput">Channel code</label>
+      <input type="text" id="channelInput" placeholder="e.g. roadtrip" maxlength="24">
+    </div>
+
+    <button class="btn btn-primary" id="joinBtn">Join channel</button>
+    <div class="status-line" id="joinStatus">Enter a name and channel to connect</div>
+  </div>
+
+  <!-- CHANNEL SCREEN -->
+  <div class="screen" id="channelScreen">
+    <div class="top-row">
+      <div>
+        <div class="channel-name" id="channelNameDisplay">—</div>
+        <div class="channel-sub" id="channelSub">connecting…</div>
+      </div>
+      <button class="leave-btn" id="leaveBtn">Leave</button>
+    </div>
+
+    <div class="meter" id="meter">
+      <div class="meter-bar" style="height:8px"></div>
+      <div class="meter-bar" style="height:14px"></div>
+      <div class="meter-bar" style="height:20px"></div>
+      <div class="meter-bar" style="height:14px"></div>
+      <div class="meter-bar" style="height:8px"></div>
+      <div class="meter-bar" style="height:16px"></div>
+      <div class="meter-bar" style="height:10px"></div>
+    </div>
+
+    <div class="ptt-wrap">
+      <button class="ptt" id="pttBtn">
+        <span class="ptt-label" id="pttLabel">HOLD TO TALK</span>
+      </button>
+      <div class="ptt-hint">Press and hold — release to listen</div>
+    </div>
+
+    <div class="members-label" id="membersLabel">ON CHANNEL</div>
+    <div class="members" id="membersList"></div>
+
+    <div class="invite-row">
+      <button class="btn btn-ghost" id="copyLinkBtn" style="margin-top:0;">Copy invite link</button>
+    </div>
+
+    <div class="footnote">Audio runs peer-to-peer over your network. Leaving this page ends your connection.</div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const joinScreen = document.getElementById('joinScreen');
+  const channelScreen = document.getElementById('channelScreen');
+  const nameInput = document.getElementById('nameInput');
+  const channelInput = document.getElementById('channelInput');
+  const joinBtn = document.getElementById('joinBtn');
+  const joinStatus = document.getElementById('joinStatus');
+  const channelNameDisplay = document.getElementById('channelNameDisplay');
+  const channelSub = document.getElementById('channelSub');
+  const leaveBtn = document.getElementById('leaveBtn');
+  const pttBtn = document.getElementById('pttBtn');
+  const pttLabel = document.getElementById('pttLabel');
+  const meter = document.getElementById('meter');
+  const membersList = document.getElementById('membersList');
+  const membersLabel = document.getElementById('membersLabel');
+  const copyLinkBtn = document.getElementById('copyLinkBtn');
+
+  // ---- State ----
+  let peer = null;
+  let myId = null;
+  let myName = null;
+  let channelCode = null;
+  let hostId = null;
+  let isHost = false;
+  let localStream = null;
+  let calls = {};       // peerId -> MediaConnection
+  let dataConns = {};   // peerId -> DataConnection
+  let roster = {};       // peerId -> {name, speaking}
+
+  function slug(s){
+    return s.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'general';
+  }
+
+  // Prefill from invite link: ?ch=CODE
+  const params = new URLSearchParams(location.search);
+  if(params.get('ch')){
+    channelInput.value = params.get('ch');
+  }
+
+  joinBtn.addEventListener('click', joinChannel);
+  [nameInput, channelInput].forEach(el=>{
+    el.addEventListener('keydown', e=>{ if(e.key==='Enter') joinChannel(); });
+  });
+
+  async function joinChannel(){
+    const name = nameInput.value.trim() || 'Guest';
+    const code = channelInput.value.trim();
+    if(!code){
+      joinStatus.textContent = 'Enter a channel code to continue';
+      channelInput.focus();
+      return;
+    }
+    myName = name;
+    channelCode = code;
+    hostId = 'wt-' + slug(code);
+
+    joinBtn.disabled = true;
+    joinStatus.textContent = 'Requesting microphone…';
+
+    try{
+      localStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}});
+      localStream.getAudioTracks().forEach(t=> t.enabled = false); // muted until PTT held
+    }catch(err){
+      joinStatus.textContent = 'Microphone access is required to join';
+      joinBtn.disabled = false;
+      return;
+    }
+
+    joinStatus.textContent = 'Connecting to channel…';
+    connectAsHostOrGuest();
+  }
+
+  function connectAsHostOrGuest(){
+    // Try to claim the channel's host slot first.
+    const hostAttempt = new Peer(hostId);
+
+    hostAttempt.on('open', id=>{
+      // We are the host / first on this channel.
+      peer = hostAttempt;
+      myId = id;
+      isHost = true;
+      roster[myId] = {name: myName, speaking:false};
+      enterChannelScreen();
+      wireIncoming();
+    });
+
+    hostAttempt.on('error', err=>{
+      if(err.type === 'unavailable-id'){
+        // Someone already hosts this channel — join as a guest instead.
+        hostAttempt.destroy();
+        joinAsGuest();
+      } else {
+        joinStatus.textContent = 'Connection error — try again';
+        joinBtn.disabled = false;
+      }
+    });
+  }
+
+  function joinAsGuest(){
+    peer = new Peer();
+    peer.on('open', id=>{
+      myId = id;
+      isHost = false;
+      roster[myId] = {name: myName, speaking:false};
+      wireIncoming();
+
+      // Register with the host over a data connection.
+      const hostConn = peer.connect(hostId, {reliable:true});
+      dataConns[hostId] = hostConn;
+
+      hostConn.on('open', ()=>{
+        hostConn.send({type:'hello', id: myId, name: myName});
+        enterChannelScreen();
+      });
+
+      hostConn.on('data', handleData(hostId));
+      hostConn.on('close', ()=> removeMember(hostId));
+
+      // Call the host for audio.
+      const call = peer.call(hostId, localStream);
+      registerCall(hostId, call);
+    });
+
+    peer.on('error', err=>{
+      joinStatus.textContent = 'Could not reach that channel — try again';
+      joinBtn.disabled = false;
+    });
+  }
+
+  function wireIncoming(){
+    peer.on('call', call=>{
+      call.answer(localStream);
+      registerCall(call.peer, call);
+    });
+
+    peer.on('connection', conn=>{
+      dataConns[conn.peer] = conn;
+      conn.on('data', handleData(conn.peer));
+      conn.on('close', ()=> removeMember(conn.peer));
+
+      conn.on('open', ()=>{
+        if(isHost){
+          conn.on('data', d=>{}); // hello handled in handleData
+        }
+      });
+    });
+  }
+
+  function handleData(fromId){
+    return function(msg){
+      if(msg.type === 'hello'){
+        // Host receives a new guest's intro.
+        roster[msg.id] = {name: msg.name, speaking:false};
+        renderMembers();
+        broadcastRoster();
+        // Introduce this new peer to all existing peers, and vice versa,
+        // by having everyone place a direct call to the newcomer.
+        connectMesh(msg.id);
+      }
+      else if(msg.type === 'roster'){
+        roster = msg.roster;
+        renderMembers();
+      }
+      else if(msg.type === 'speaking'){
+        if(roster[msg.id]){
+          roster[msg.id].speaking = msg.state;
+          renderMembers();
+        }
+        if(isHost) broadcastToAllExcept(fromId, msg);
+      }
+      else if(msg.type === 'connect-to'){
+        // Instructed to directly call another member so audio is full mesh,
+        // not relayed through the host.
+        if(msg.id !== myId && !calls[msg.id]){
+          const call = peer.call(msg.id, localStream);
+          registerCall(msg.id, call);
+        }
+      }
+    };
+  }
+
+  function connectMesh(newPeerId){
+    // As host, tell the newcomer to directly call every existing member
+    // (besides the host, which it already called) so audio is full mesh.
+    if(!isHost) return;
+    Object.keys(roster).forEach(existingId=>{
+      if(existingId === newPeerId || existingId === myId) return;
+      if(dataConns[newPeerId]){
+        dataConns[newPeerId].send({type:'connect-to', id: existingId});
+      }
+    });
+  }
+
+  function broadcastRoster(){
+    Object.values(dataConns).forEach(c=> c.open && c.send({type:'roster', roster}));
+  }
+  function broadcastToAllExcept(exceptId, msg){
+    Object.entries(dataConns).forEach(([id,c])=>{
+      if(id!==exceptId && c.open) c.send(msg);
+    });
+  }
+
+  function registerCall(id, call){
+    calls[id] = call;
+    call.on('stream', remoteStream=>{
+      let audioEl = document.getElementById('audio-'+id);
+      if(!audioEl){
+        audioEl = document.createElement('audio');
+        audioEl.id = 'audio-'+id;
+        audioEl.autoplay = true;
+        audioEl.playsInline = true;
+        document.body.appendChild(audioEl);
+      }
+      audioEl.srcObject = remoteStream;
+    });
+    call.on('close', ()=> removeMember(id));
+  }
+
+  function removeMember(id){
+    delete roster[id];
+    delete calls[id];
+    delete dataConns[id];
+    const audioEl = document.getElementById('audio-'+id);
+    if(audioEl) audioEl.remove();
+    renderMembers();
+    if(isHost) broadcastRoster();
+  }
+
+  function enterChannelScreen(){
+    joinScreen.classList.remove('active');
+    channelScreen.classList.add('active');
+    channelNameDisplay.textContent = channelCode;
+    channelSub.textContent = 'connected as ' + myName;
+    renderMembers();
+  }
+
+  function renderMembers(){
+    const count = Object.keys(roster).length;
+    membersLabel.textContent = 'ON CHANNEL · ' + count;
+    membersList.innerHTML = '';
+    Object.entries(roster).forEach(([id, info])=>{
+      const el = document.createElement('div');
+      el.className = 'member' + (info.speaking ? ' speaking' : '') + (id===myId ? ' self' : '');
+      el.innerHTML = '<span class="dot"></span><span>' + escapeHtml(info.name) + (id===myId? ' (you)':'') + '</span>';
+      membersList.appendChild(el);
+    });
+  }
+
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---- Push to talk ----
+  function setTransmitting(state){
+    if(!localStream) return;
+    localStream.getAudioTracks().forEach(t=> t.enabled = state);
+    pttBtn.classList.toggle('active', state);
+    pttLabel.textContent = state ? 'TRANSMITTING' : 'HOLD TO TALK';
+    meter.classList.toggle('live', state);
+    if(roster[myId]) roster[myId].speaking = state;
+    renderMembers();
+    const msg = {type:'speaking', id: myId, state};
+    Object.values(dataConns).forEach(c=> c.open && c.send(msg));
+  }
+
+  ['mousedown','touchstart'].forEach(evt=>{
+    pttBtn.addEventListener(evt, e=>{ e.preventDefault(); setTransmitting(true); });
+  });
+  ['mouseup','mouseleave','touchend','touchcancel'].forEach(evt=>{
+    pttBtn.addEventListener(evt, e=>{ setTransmitting(false); });
+  });
+
+  // Spacebar as PTT on desktop
+  document.addEventListener('keydown', e=>{
+    if(e.code === 'Space' && channelScreen.classList.contains('active') && !e.repeat){
+      e.preventDefault(); setTransmitting(true);
+    }
+  });
+  document.addEventListener('keyup', e=>{
+    if(e.code === 'Space'){ setTransmitting(false); }
+  });
+
+  // ---- Leave ----
+  leaveBtn.addEventListener('click', ()=>{
+    Object.values(calls).forEach(c=> c.close());
+    Object.values(dataConns).forEach(c=> c.close());
+    if(peer) peer.destroy();
+    if(localStream) localStream.getTracks().forEach(t=> t.stop());
+    document.querySelectorAll('audio[id^="audio-"]').forEach(a=> a.remove());
+    roster = {}; calls = {}; dataConns = {}; peer=null;
+    joinBtn.disabled = false;
+    joinStatus.textContent = 'Enter a name and channel to connect';
+    channelScreen.classList.remove('active');
+    joinScreen.classList.add('active');
+  });
+
+  // ---- Invite link ----
+  copyLinkBtn.addEventListener('click', ()=>{
+    const url = location.origin + location.pathname + '?ch=' + encodeURIComponent(channelCode);
+    navigator.clipboard.writeText(url).then(()=>{
+      copyLinkBtn.textContent = 'Link copied';
+      setTimeout(()=> copyLinkBtn.textContent = 'Copy invite link', 1500);
+    }).catch(()=>{
+      prompt('Copy this invite link:', url);
+    });
+  });
+
+})();
+</script>
+</body>
+</html>
