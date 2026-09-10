@@ -264,6 +264,20 @@
     margin-top:16px;
     line-height:1.5;
   }
+  .ad-slot{
+    margin-top:22px;
+    min-height:90px;
+    border-radius:10px;
+    border:1px dashed var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:11.5px;
+    color:var(--text-faint);
+  }
+  .ad-slot:empty::before{
+    content:'Ad space — replace with your ad network\'s embed code';
+  }
 </style>
 </head>
 <body>
@@ -287,6 +301,10 @@
 
     <button class="btn btn-primary" id="joinBtn">Join channel</button>
     <div class="status-line" id="joinStatus">Enter a name and channel to connect</div>
+
+    <div class="ad-slot" id="adSlot">
+      <!-- Ad unit goes here. See comment at bottom of file for setup notes. -->
+    </div>
   </div>
 
   <!-- CHANNEL SCREEN -->
