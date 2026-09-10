@@ -357,6 +357,7 @@
   let calls = {};       // peerId -> MediaConnection
   let dataConns = {};   // peerId -> DataConnection
   let roster = {};       // peerId -> {name, speaking}
+  const MAX_MEMBERS = 4;
 
   function slug(s){
     return s.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'general';
@@ -441,7 +442,9 @@
 
       hostConn.on('open', ()=>{
         hostConn.send({type:'hello', id: myId, name: myName});
-        enterChannelScreen();
+        // Give the host a moment to reject if the channel is full;
+        // otherwise proceed in.
+        setTimeout(()=>{ if(!channelScreen.classList.contains('active') && peer && !peer.destroyed) enterChannelScreen(); }, 400);
       });
 
       hostConn.on('data', handleData(hostId));
@@ -481,12 +484,19 @@
     return function(msg){
       if(msg.type === 'hello'){
         // Host receives a new guest's intro.
+        if(Object.keys(roster).length >= MAX_MEMBERS){
+          if(dataConns[msg.id]) dataConns[msg.id].send({type:'full'});
+          return;
+        }
         roster[msg.id] = {name: msg.name, speaking:false};
         renderMembers();
         broadcastRoster();
         // Introduce this new peer to all existing peers, and vice versa,
         // by having everyone place a direct call to the newcomer.
         connectMesh(msg.id);
+      }
+      else if(msg.type === 'full'){
+        channelFull();
       }
       else if(msg.type === 'roster'){
         roster = msg.roster;
@@ -557,6 +567,18 @@
     if(isHost) broadcastRoster();
   }
 
+  function channelFull(){
+    Object.values(calls).forEach(c=> c.close());
+    Object.values(dataConns).forEach(c=> c.close());
+    if(peer) peer.destroy();
+    if(localStream) localStream.getTracks().forEach(t=> t.stop());
+    roster = {}; calls = {}; dataConns = {}; peer=null; localStream=null;
+    joinBtn.disabled = false;
+    joinStatus.textContent = 'That channel already has ' + MAX_MEMBERS + ' people — try another code';
+    channelScreen.classList.remove('active');
+    joinScreen.classList.add('active');
+  }
+
   function enterChannelScreen(){
     joinScreen.classList.remove('active');
     channelScreen.classList.add('active');
@@ -567,7 +589,7 @@
 
   function renderMembers(){
     const count = Object.keys(roster).length;
-    membersLabel.textContent = 'ON CHANNEL · ' + count;
+    membersLabel.textContent = 'ON CHANNEL · ' + count + ' / ' + MAX_MEMBERS;
     membersList.innerHTML = '';
     Object.entries(roster).forEach(([id, info])=>{
       const el = document.createElement('div');
