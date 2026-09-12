@@ -25,19 +25,16 @@
   html,body{height:100%;}
   body{
     margin:0;
-    background: radial-gradient(circle at 50% 0%, #212425 0%, #1B1D1E 60%);
+    background: #14161a;
     color:var(--text);
     font-family:'Space Grotesk', system-ui, sans-serif;
-    display:flex;
-    align-items:center;
-    justify-content:center;
     min-height:100vh;
-    padding: 24px 16px;
     user-select:none;
   }
-  .unit{
-    width:100%;
+  #channelScreen.unit{
+    width:calc(100% - 32px);
     max-width:380px;
+    margin: 24px auto;
     background: linear-gradient(180deg, var(--panel-raised), var(--panel));
     border-radius: 20px;
     border: 1px solid rgba(255,255,255,0.06);
@@ -48,7 +45,7 @@
     position:relative;
     overflow:hidden;
   }
-  .unit::before{
+  #channelScreen.unit::before{
     content:'';
     position:absolute; top:0; left:0; right:0; height:1px;
     background: linear-gradient(90deg, transparent, rgba(232,163,61,0.5), transparent);
@@ -58,25 +55,84 @@
   .screen{ display:none; }
   .screen.active{ display:block; }
 
-  /* Join screen */
-  .brand{
-    font-size:13px;
-    letter-spacing:0.02em;
-    color:var(--text-dim);
-    margin-bottom:2px;
+  /* ---- Landing / join screen ---- */
+  .topbar{
+    position:relative; z-index:2;
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    padding:12px 16px;
+  }
+  .secure-badge{
+    display:flex; align-items:center; gap:7px;
+    font-size:12.5px; color:#bdf3d6;
+  }
+  .secure-badge .shield{ width:15px; height:15px; color: var(--green); }
+  .secure-dot{
+    width:7px; height:7px; border-radius:50%;
+    background: var(--green);
+    box-shadow: 0 0 5px var(--green);
+  }
+  .hero-bg{
+    position:fixed; inset:0;
+    width:100%; height:100%;
+    object-fit:cover;
+    z-index:0;
+  }
+  .hero-overlay{
+    position:fixed; inset:0; z-index:1;
+    background: linear-gradient(180deg, rgba(10,11,13,0.5) 0%, rgba(14,16,18,0.72) 45%, rgba(19,21,23,0.9) 100%);
+  }
+  .brand-block{
+    position:relative; z-index:2;
+    text-align:center;
+    padding: 10px 16px 0;
+  }
+  .wordmark{
+    display:flex; align-items:center; justify-content:center; gap:8px;
   }
   h1{
-    font-size:30px;
+    font-size:26px;
     font-weight:700;
-    margin:0 0 6px 0;
+    margin:0;
     letter-spacing:-0.01em;
   }
+  h1 .accent{ color: var(--amber); }
   .slogan{
+    font-size:13.5px;
+    font-weight:500;
+    letter-spacing:0.04em;
+    color: var(--text);
+    margin-top:8px;
+  }
+  .slogan-underline{
+    width:90px;
+    height:2px;
+    background: var(--amber);
+    margin: 8px auto 0;
+    opacity:0.85;
+  }
+  .card{
+    position:relative; z-index:2;
+    width:calc(100% - 32px);
+    max-width:400px;
+    margin: 16px auto 0;
+    background: linear-gradient(180deg, var(--panel-raised), var(--panel));
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.07);
+    box-shadow: 0 24px 50px -20px rgba(0,0,0,0.55);
+    padding: 16px 18px;
+  }
+  .card h2{
+    font-size:17px;
+    font-weight:700;
+    margin:0 0 3px 0;
+  }
+  .card-sub{
     font-size:12px;
-    font-weight:600;
-    letter-spacing:0.08em;
-    color: var(--amber);
-    margin-bottom:22px;
+    color: var(--text-dim);
+    margin:0 0 12px 0;
+    line-height:1.4;
   }
   label{
     display:block;
@@ -84,7 +140,7 @@
     color:var(--text-dim);
     margin-bottom:6px;
   }
-  .field{ margin-bottom:16px; }
+  .field{ margin-bottom:11px; }
   input[type=text]{
     width:100%;
     background: rgba(0,0,0,0.25);
@@ -272,56 +328,122 @@
     line-height:1.5;
   }
   .ad-slot{
-    margin-top:22px;
-    min-height:90px;
+    margin-top:12px;
+    min-height:44px;
     border-radius:10px;
     border:1px dashed var(--line);
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:11.5px;
+    font-size:10.5px;
     color:var(--text-faint);
   }
   .ad-slot:empty::before{
     content:'Ad space — replace with your ad network\'s embed code';
   }
+  .feature-grid{
+    position:relative; z-index:2;
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:12px 10px;
+    max-width:400px;
+    margin: 14px auto 16px;
+    padding: 12px 18px 0;
+  }
+  .feature{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    gap:5px;
+  }
+  .feature svg{
+    width:19px; height:19px;
+    flex-shrink:0;
+    color: #6fb3e0;
+  }
+  .feature span{
+    font-size:10.5px;
+    line-height:1.3;
+    color:var(--text-dim);
+  }
 </style>
 </head>
 <body>
 
-<div class="unit">
-
-  <!-- JOIN SCREEN -->
+  <!-- JOIN / LANDING SCREEN -->
   <div class="screen active" id="joinScreen">
-    <h1>Waki-Taki</h1>
-    <div class="slogan">SIMPLE &nbsp;&deg;&nbsp; CONNECT &nbsp;&deg;&nbsp; SECURE</div>
 
-    <div class="field">
-      <label for="nameInput">Your name</label>
-      <input type="text" id="nameInput" placeholder="Mr. Wiggles" maxlength="20">
+    <div class="topbar">
+      <div class="secure-badge">
+        <svg class="shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V5l-8-3z"/><path d="M9 12l2 2 4-4"/></svg>
+        Secure Connection <span class="secure-dot"></span>
+      </div>
     </div>
 
-    <div class="field">
-      <label for="channelInput">Channel code</label>
-      <input type="text" id="channelInput" placeholder="sittin-on-the-$" maxlength="24">
+    <img src="hero.jpg" alt="Waki-Taki walkie-talkie" class="hero-bg">
+    <div class="hero-overlay"></div>
+
+    <div class="brand-block">
+      <div class="wordmark">
+        <svg width="24" height="24" viewBox="0 0 24 24"><rect x="2" y="9" width="3" height="6" rx="1.5" fill="var(--amber)"/><rect x="7" y="5" width="3" height="14" rx="1.5" fill="var(--amber)"/><rect x="12" y="2" width="3" height="20" rx="1.5" fill="var(--amber)"/><rect x="17" y="7" width="3" height="10" rx="1.5" fill="var(--amber)"/></svg>
+        <h1>Waki-<span class="accent">Taki</span></h1>
+      </div>
+      <div class="slogan">SIMPLE &nbsp;&bull;&nbsp; PRIVATE &nbsp;&bull;&nbsp; SECURE</div>
+      <div class="slogan-underline"></div>
     </div>
 
-    <button class="btn btn-primary" id="joinBtn">Join channel</button>
-    <div class="status-line" id="joinStatus">Enter a name and channel to connect</div>
+    <div class="card">
+      <h2>Join a Channel</h2>
+      <p class="card-sub">Connect with the people who matter, wherever you are.</p>
 
-    <div class="ad-slot" id="adSlot">
-      <!-- Ad unit goes here. See comment at bottom of file for setup notes. -->
+      <div class="field">
+        <label for="nameInput">Your name</label>
+        <input type="text" id="nameInput" placeholder="Mr. Wiggles" maxlength="20">
+      </div>
+
+      <div class="field">
+        <label for="channelInput">Channel code</label>
+        <input type="text" id="channelInput" placeholder="sittin-on-the-$" maxlength="24">
+      </div>
+
+      <button class="btn btn-primary" id="joinBtn">Join channel</button>
+      <div class="status-line" id="joinStatus">Enter a name and channel to connect</div>
+
+      <div class="ad-slot" id="adSlot">
+        <!-- Ad unit goes here. See comment at bottom of file for setup notes. -->
+      </div>
+
+      <div class="footnote" style="margin-top:14px;">
+        <a href="about.html" style="color:inherit; text-decoration:underline;">About</a>
+        &nbsp;·&nbsp;
+        <a href="privacy.html" style="color:inherit; text-decoration:underline;">Privacy</a>
+      </div>
     </div>
 
-    <div class="footnote" style="margin-top:14px;">
-      <a href="about.html" style="color:inherit; text-decoration:underline;">About</a>
-      &nbsp;·&nbsp;
-      <a href="privacy.html" style="color:inherit; text-decoration:underline;">Privacy</a>
+    <div class="feature-grid">
+      <div class="feature">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <span>End-to-End<br>Encrypted</span>
+      </div>
+      <div class="feature">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>
+        <span>Low Latency<br>Audio</span>
+      </div>
+      <div class="feature">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="8" r="3"/><path d="M2 20c0-3.3 3-6 7-6s7 2.7 7 6"/><circle cx="17" cy="8" r="2.6"/><path d="M16 14.2c2.7.5 5 2.6 5 5.8"/></svg>
+        <span>Private<br>Channels</span>
+      </div>
+      <div class="feature">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="4" width="15" height="10" rx="1.5"/><path d="M7 20h6"/><path d="M9.5 14v6"/><rect x="16" y="9" width="6" height="10" rx="1.2"/></svg>
+        <span>Works on<br>Any Device</span>
+      </div>
     </div>
+
   </div>
 
-  <!-- CHANNEL SCREEN -->
-  <div class="screen" id="channelScreen">
+  <!-- CHANNEL / TALK SCREEN -->
+  <div class="screen unit" id="channelScreen">
     <div class="top-row">
       <div>
         <div class="channel-name" id="channelNameDisplay">—</div>
@@ -362,8 +484,6 @@
       <a href="privacy.html" style="color:inherit; text-decoration:underline;">Privacy Policy</a>
     </div>
   </div>
-
-</div>
 
 <script>
 (function(){
