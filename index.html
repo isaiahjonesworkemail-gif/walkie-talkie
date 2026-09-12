@@ -304,6 +304,7 @@
     <div class="field">
       <label for="channelInput">Channel code</label>
       <input type="text" id="channelInput" placeholder="e.g. roadtrip" maxlength="24">
+      <div style="font-size:11.5px; color:var(--text-faint); margin-top:5px;">Case-sensitive — "Bee" and "bee" are different channels</div>
     </div>
 
     <button class="btn btn-primary" id="joinBtn">Join channel</button>
@@ -419,7 +420,7 @@
   });
 
   function slug(s){
-    return s.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'general';
+    return s.trim().replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'general';
   }
 
   // Prefill from invite link: ?ch=CODE
