@@ -35,25 +35,145 @@
     min-height:100vh;
     user-select:none;
   }
-  #channelScreen.unit{
-    width:calc(100% - 32px);
-    max-width:380px;
-    margin: 24px auto;
-    background: linear-gradient(180deg, var(--panel-raised), var(--panel));
-    border-radius: 20px;
-    border: 1px solid rgba(255,255,255,0.06);
-    box-shadow:
-      0 30px 60px -20px rgba(0,0,0,0.6),
-      inset 0 1px 0 rgba(255,255,255,0.04);
-    padding: 20px;
+  #channelScreen{
+    max-width:460px;
+    margin:0 auto;
+  }
+  .talk-ad-bar{
+    min-height:70px;
+    border-bottom:1px solid var(--baby-blue);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:10.5px;
+    color:var(--text-faint);
+    background: var(--navy-deep);
+  }
+  .talk-ad-bar.bottom{
+    border-bottom:none;
+    border-top:1px solid var(--baby-blue);
+  }
+  .talk-ad-bar:empty::before{
+    content:'Ad space — replace with your ad network\'s embed code';
+  }
+  .talk-photo-wrap{
     position:relative;
+    width:100%;
+    aspect-ratio: 1024 / 1536;
     overflow:hidden;
   }
-  #channelScreen.unit::before{
-    content:'';
-    position:absolute; top:0; left:0; right:0; height:1px;
-    background: linear-gradient(90deg, transparent, rgba(232,163,61,0.5), transparent);
+  .talk-bg{
+    width:100%; height:100%;
+    object-fit:contain;
+    display:block;
   }
+  .talk-leave-btn{
+    position:absolute; top:2%; right:4%;
+    background: rgba(10,12,14,0.5);
+    backdrop-filter: blur(3px);
+    border:1px solid rgba(255,255,255,0.15);
+    color:var(--text);
+    font-family:inherit;
+    font-size:11px;
+    padding:5px 11px;
+    border-radius:20px;
+    cursor:pointer;
+  }
+  .talk-screen-panel{
+    position:absolute;
+    left:21%; top:14%;
+    width:62%; height:16%;
+    padding: 2.5% 4%;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    color:#dfe8f0;
+  }
+  .talk-screen-row{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:6px;
+  }
+  .talk-channel-name{ font-size: clamp(13px, 4.2vw, 20px); font-weight:700; line-height:1.1; }
+  .talk-channel-sub{ font-size: clamp(9px, 2.6vw, 12px); color:#a9c4d8; margin-top:2px; }
+  .talk-online-pill{
+    display:flex; align-items:center; gap:4px;
+    font-size: clamp(8px, 2.3vw, 10.5px);
+    background: rgba(76,175,109,0.18);
+    border:1px solid rgba(76,175,109,0.4);
+    color:#a9e8bd;
+    padding:2px 7px;
+    border-radius:20px;
+    white-space:nowrap;
+  }
+  .talk-meter{
+    display:flex; align-items:center; justify-content:center;
+    gap:3px; margin-top:6%;
+    height:22%;
+  }
+  .talk-meter-bar{
+    width:3px;
+    background: #6fc3ff;
+    border-radius:2px;
+    box-shadow:0 0 4px rgba(111,195,255,0.7);
+    opacity:0.55;
+  }
+  .talk-meter.live .talk-meter-bar{ opacity:1; }
+  .talk-ptt-hit{
+    position:absolute;
+    left:37%; top:41.5%;
+    width:26%; height:17.5%;
+    border-radius:50%;
+    background:transparent;
+    border:none;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .talk-ptt-hit::before{
+    content:'';
+    position:absolute; inset:-14%;
+    border-radius:50%;
+    box-shadow: 0 0 0 0 rgba(111,195,255,0);
+    transition: box-shadow 0.2s;
+  }
+  .talk-ptt-hit.active::before{
+    box-shadow: 0 0 0 10px rgba(111,195,255,0.25), 0 0 30px 8px rgba(111,195,255,0.5);
+  }
+  .talk-ptt-hit svg{ width:34%; height:34%; color:#eef6ff; opacity:0.9; }
+  .talk-bottom-panel{
+    position:absolute;
+    left:21.5%; top:72%;
+    width:62%; height:22%;
+    padding: 3% 4%;
+    display:flex;
+    flex-direction:column;
+    gap:4%;
+  }
+  .talk-members-label{
+    font-size: clamp(8.5px, 2.4vw, 11px);
+    color:#9fb6c8;
+    letter-spacing:0.03em;
+  }
+  .talk-members{
+    display:flex; flex-wrap:wrap; gap:5px;
+  }
+  .talk-hint-bar{
+    margin-top:auto;
+    background: rgba(255,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:20px;
+    text-align:center;
+    font-size: clamp(8px, 2.2vw, 10.5px);
+    color:#cfe3f0;
+    padding:5px 6px;
+  }
+  .talk-footer{
+    text-align:center;
+    padding:14px 16px 20px;
+  }
+  .talk-footer .btn-ghost{ max-width:220px; margin:0 auto 10px; }
+  .talk-footer .footnote{ margin-top:0; }
 
   /* ---- Screens ---- */
   .screen{ display:none; }
@@ -217,141 +337,26 @@
   }
 
   /* Channel screen */
-  .top-row{
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-start;
-    margin-bottom:22px;
-  }
-  .channel-name{
-    font-size:22px;
-    font-weight:700;
-    letter-spacing:-0.01em;
-  }
-  .channel-sub{
-    font-size:12.5px;
-    color:var(--text-dim);
-    margin-top:3px;
-  }
-  .leave-btn{
-    background:transparent;
-    border:1px solid var(--line);
-    color:var(--text-dim);
-    border-radius:8px;
-    padding:7px 12px;
-    font-family:inherit;
-    font-size:12.5px;
-    cursor:pointer;
-  }
-  .leave-btn:hover{ border-color: var(--red); color: var(--red); }
-
-  /* Meter */
-  .meter{
-    height:44px;
-    background:rgba(0,0,0,0.3);
-    border-radius:10px;
-    border:1px solid var(--line);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:3px;
-    margin-bottom:26px;
-    padding:0 14px;
-  }
-  .meter-bar{
-    width:4px;
-    height:6px;
-    background: var(--text-faint);
-    border-radius:2px;
-    transition: height 0.1s ease, background 0.1s ease;
-  }
-  .meter.live .meter-bar{ background: var(--amber); }
-
-  /* PTT button */
-  .ptt-wrap{
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    margin-bottom: 26px;
-  }
-  .ptt{
-    width:168px;
-    height:168px;
-    border-radius:50%;
-    border: none;
-    background: radial-gradient(circle at 35% 30%, #34383A, #26292A 70%);
-    box-shadow:
-      0 10px 24px rgba(0,0,0,0.5),
-      inset 0 1px 1px rgba(255,255,255,0.08),
-      inset 0 -8px 16px rgba(0,0,0,0.35),
-      0 0 0 6px rgba(0,0,0,0.2);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    cursor:pointer;
-    position:relative;
-    touch-action: none;
-  }
-  .ptt-label{
-    font-size:14px;
-    font-weight:600;
-    letter-spacing:0.03em;
-    color:var(--text-dim);
-    pointer-events:none;
-  }
-  .ptt.active{
-    background: radial-gradient(circle at 35% 30%, #5a4326, #E8A33D 140%);
-    box-shadow:
-      0 10px 30px rgba(232,163,61,0.35),
-      inset 0 1px 1px rgba(255,255,255,0.15),
-      inset 0 -8px 16px rgba(0,0,0,0.25),
-      0 0 0 6px rgba(232,163,61,0.12);
-  }
-  .ptt.active .ptt-label{ color:#1B1D1E; }
-  .ptt-hint{
-    margin-top:14px;
-    font-size:12.5px;
-    color:var(--text-faint);
-  }
-
-  /* Members */
-  .members-label{
-    font-size:12px;
-    color:var(--text-faint);
-    margin-bottom:10px;
-  }
-  .members{
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px;
-  }
   .member{
     display:flex;
     align-items:center;
-    gap:7px;
-    background: rgba(0,0,0,0.25);
-    border:1px solid var(--line);
+    gap:5px;
+    background: rgba(10,14,18,0.55);
+    border:1px solid rgba(255,255,255,0.15);
     border-radius:20px;
-    padding:6px 12px 6px 8px;
-    font-size:13px;
-    color:var(--text-dim);
-    transition: border-color 0.15s, color 0.15s;
+    padding:4px 9px 4px 7px;
+    font-size: clamp(8px, 2.2vw, 10.5px);
+    color:#dfe8f0;
+    transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
   }
   .member .dot{
-    width:8px; height:8px; border-radius:50%;
-    background: var(--text-faint);
+    width:6px; height:6px; border-radius:50%;
+    background: var(--green);
+    box-shadow: 0 0 4px var(--green);
   }
-  .member.speaking{ border-color: var(--green); color:var(--text); }
-  .member.speaking .dot{ background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .member.speaking{ border-color:#6fc3ff; box-shadow:0 0 8px rgba(111,195,255,0.45); }
+  .member.speaking .dot{ background:#6fc3ff; box-shadow: 0 0 6px #6fc3ff; }
   .member.self{ border-style:dashed; }
-
-  /* Invite row */
-  .invite-row{
-    margin-top:20px;
-    display:flex;
-    gap:8px;
-  }
-  .invite-row .btn{ font-size:13px; padding:11px; }
 
   .footnote{
     text-align:center;
@@ -500,45 +505,52 @@
   </div>
 
   <!-- CHANNEL / TALK SCREEN -->
-  <div class="screen unit" id="channelScreen">
-    <div class="top-row">
-      <div>
-        <div class="channel-name" id="channelNameDisplay">—</div>
-        <div class="channel-sub" id="channelSub">connecting…</div>
+  <div class="screen" id="channelScreen">
+
+    <div class="talk-ad-bar" id="channelAdSlotTop"></div>
+
+    <div class="talk-photo-wrap">
+      <img src="talk-bg.jpg" alt="" class="talk-bg">
+
+      <button class="talk-leave-btn" id="leaveBtn">Leave</button>
+
+      <div class="talk-screen-panel">
+        <div class="talk-screen-row">
+          <div>
+            <div class="talk-channel-name" id="channelNameDisplay">—</div>
+            <div class="talk-channel-sub" id="channelSub">connecting…</div>
+          </div>
+          <div class="talk-online-pill"><span class="dot"></span> Online</div>
+        </div>
+        <div class="talk-meter" id="meter">
+          <div class="talk-meter-bar" style="height:20%"></div>
+          <div class="talk-meter-bar" style="height:40%"></div>
+          <div class="talk-meter-bar" style="height:70%"></div>
+          <div class="talk-meter-bar" style="height:100%"></div>
+          <div class="talk-meter-bar" style="height:65%"></div>
+          <div class="talk-meter-bar" style="height:35%"></div>
+          <div class="talk-meter-bar" style="height:18%"></div>
+        </div>
       </div>
-      <button class="leave-btn" id="leaveBtn">Leave</button>
-    </div>
 
-    <div class="meter" id="meter">
-      <div class="meter-bar" style="height:8px"></div>
-      <div class="meter-bar" style="height:14px"></div>
-      <div class="meter-bar" style="height:20px"></div>
-      <div class="meter-bar" style="height:14px"></div>
-      <div class="meter-bar" style="height:8px"></div>
-      <div class="meter-bar" style="height:16px"></div>
-      <div class="meter-bar" style="height:10px"></div>
-    </div>
-
-    <div class="ptt-wrap">
-      <button class="ptt" id="pttBtn">
-        <span class="ptt-label" id="pttLabel">HOLD TO TALK</span>
+      <button class="talk-ptt-hit" id="pttBtn" aria-label="Push to talk">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M9 21h6"/></svg>
       </button>
-      <div class="ptt-hint">Press and hold — release to listen</div>
+
+      <div class="talk-bottom-panel">
+        <div class="talk-members-label" id="membersLabel">ON CHANNEL</div>
+        <div class="talk-members" id="membersList"></div>
+        <div class="talk-hint-bar" id="pttLabel">Press and hold — release to listen</div>
+      </div>
     </div>
 
-    <div class="members-label" id="membersLabel">ON CHANNEL</div>
-    <div class="members" id="membersList"></div>
+    <div class="talk-ad-bar bottom" id="channelAdSlot"></div>
 
-    <div class="invite-row">
-      <button class="btn btn-ghost" id="copyLinkBtn" style="margin-top:0;">Copy invite link</button>
-    </div>
-
-    <div class="ad-slot" id="channelAdSlot" style="margin-top:20px;">
-      <!-- Ad unit goes here. See comment near the join-screen ad slot for setup notes. -->
-    </div>
-
-    <div class="footnote">Audio runs peer-to-peer over your network. Leaving this page ends your connection.<br>
-      <a href="privacy.html" style="color:inherit; text-decoration:underline;">Privacy Policy</a>
+    <div class="talk-footer">
+      <button class="btn btn-ghost" id="copyLinkBtn">Copy invite link</button>
+      <div class="footnote">Audio runs peer-to-peer over your network. Leaving this page ends your connection.<br>
+        <a href="privacy.html" style="color:inherit; text-decoration:underline;">Privacy Policy</a>
+      </div>
     </div>
   </div>
 
@@ -851,7 +863,7 @@
     if(!localStream) return;
     localStream.getAudioTracks().forEach(t=> t.enabled = state);
     pttBtn.classList.toggle('active', state);
-    pttLabel.textContent = state ? 'TRANSMITTING' : 'HOLD TO TALK';
+    pttLabel.textContent = state ? 'Transmitting…' : 'Press and hold — release to listen';
     meter.classList.toggle('live', state);
     if(roster[myId]) roster[myId].speaking = state;
     renderMembers();
