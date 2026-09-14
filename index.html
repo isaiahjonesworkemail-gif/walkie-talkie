@@ -601,6 +601,7 @@
   let roster = {};       // peerId -> {name, speaking}
   const MAX_MEMBERS = 4;
   let wakeLock = null;
+  let resyncInterval = null;
 
   async function requestWakeLock(){
     try{
@@ -752,17 +753,24 @@
   function handleData(fromId){
     return function(msg){
       if(msg.type === 'hello'){
-        // Host receives a new guest's intro.
-        if(Object.keys(roster).length >= MAX_MEMBERS){
+        // Host receives a guest's intro (also resent periodically as a safety net).
+        const alreadyKnown = !!roster[msg.id];
+        if(!alreadyKnown && Object.keys(roster).length >= MAX_MEMBERS){
           if(dataConns[msg.id]) dataConns[msg.id].send({type:'full'});
           return;
         }
-        roster[msg.id] = {name: msg.name, speaking:false};
-        renderMembers();
-        broadcastRoster();
-        // Introduce this new peer to all existing peers, and vice versa,
-        // by having everyone place a direct call to the newcomer.
-        connectMesh(msg.id);
+        if(!alreadyKnown){
+          roster[msg.id] = {name: msg.name, speaking:false};
+          renderMembers();
+          broadcastRoster();
+          // Introduce this new peer to all existing peers, and vice versa,
+          // by having everyone place a direct call to the newcomer.
+          connectMesh(msg.id);
+        } else {
+          // Already known — just make sure the host's copy is in sync,
+          // without resetting their live speaking state.
+          broadcastRoster();
+        }
       }
       else if(msg.type === 'full'){
         channelFull();
@@ -842,6 +850,7 @@
     if(peer) peer.destroy();
     if(localStream) localStream.getTracks().forEach(t=> t.stop());
     releaseWakeLock();
+    if(resyncInterval){ clearInterval(resyncInterval); resyncInterval = null; }
     roster = {}; calls = {}; dataConns = {}; peer=null; localStream=null;
     joinBtn.disabled = false;
     joinStatus.textContent = 'That channel already has ' + MAX_MEMBERS + ' people — try another code';
@@ -856,6 +865,15 @@
     channelSub.textContent = 'connected as ' + myName;
     renderMembers();
     requestWakeLock();
+    if(resyncInterval) clearInterval(resyncInterval);
+    resyncInterval = setInterval(()=>{
+      if(isHost){
+        broadcastRoster();
+      } else if(dataConns[hostId] && dataConns[hostId].open){
+        // Guests nudge the host in case our own hello was ever missed.
+        dataConns[hostId].send({type:'hello', id: myId, name: myName});
+      }
+    }, 4000);
   }
 
   function renderMembers(){
@@ -911,6 +929,7 @@
     if(peer) peer.destroy();
     if(localStream) localStream.getTracks().forEach(t=> t.stop());
     releaseWakeLock();
+    if(resyncInterval){ clearInterval(resyncInterval); resyncInterval = null; }
     document.querySelectorAll('audio[id^="audio-"]').forEach(a=> a.remove());
     roster = {}; calls = {}; dataConns = {}; peer=null;
     joinBtn.disabled = false;
