@@ -346,6 +346,53 @@
     border:1px solid var(--line);
     margin-top:10px;
   }
+  .schedule-link-btn{
+    display:block;
+    background:none;
+    border:none;
+    padding:0;
+    margin: -3px 0 13px 0;
+    font-family:inherit;
+    font-size:12px;
+    color: var(--amber);
+    text-decoration:underline;
+    cursor:pointer;
+  }
+  .schedule-panel{
+    background: rgba(0,0,0,0.22);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:12px 12px 4px;
+    margin-bottom:13px;
+  }
+  select{
+    width:100%;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--line);
+    border-radius:10px;
+    padding: 11px 12px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:14px;
+    outline:none;
+  }
+  input[type=datetime-local]{
+    width:100%;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--line);
+    border-radius:10px;
+    padding: 11px 12px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:14px;
+    outline:none;
+    color-scheme: dark;
+  }
+  .schedule-actions{
+    display:flex;
+    gap:8px;
+  }
+  .schedule-actions .btn{ font-size:12.5px; padding:10px 8px; flex:1; }
   .status-line{
     font-size:13px;
     color:var(--text-faint);
@@ -481,6 +528,28 @@
           <div class="field">
             <label for="channelInput">Channel code</label>
             <input type="text" id="channelInput" placeholder="sittin-on-the-$" maxlength="24">
+          </div>
+
+          <button type="button" class="schedule-link-btn" id="scheduleToggleBtn">Schedule this channel</button>
+
+          <div class="schedule-panel" id="schedulePanel" hidden>
+            <div class="field">
+              <label for="scheduleDateTime">Date &amp; time</label>
+              <input type="datetime-local" id="scheduleDateTime">
+            </div>
+            <div class="field" style="margin-bottom:10px;">
+              <label for="scheduleRepeat">Repeat</label>
+              <select id="scheduleRepeat">
+                <option value="none">Doesn't repeat</option>
+                <option value="daily">Every day</option>
+                <option value="weekly">Every week</option>
+              </select>
+            </div>
+            <div class="schedule-actions">
+              <button type="button" class="btn btn-ghost" id="scheduleGoogleBtn" style="margin-top:0;">Add to Google Calendar</button>
+              <button type="button" class="btn btn-ghost" id="scheduleIcsBtn" style="margin-top:0;">Download calendar file</button>
+            </div>
+            <div class="status-line" id="scheduleStatus" style="margin-top:8px;"></div>
           </div>
 
           <button class="btn btn-primary" id="joinBtn">Join channel</button>
@@ -947,6 +1016,97 @@
     }).catch(()=>{
       prompt('Copy this invite link:', url);
     });
+  });
+
+  // ---- Schedule this channel ----
+  const scheduleToggleBtn = document.getElementById('scheduleToggleBtn');
+  const schedulePanel = document.getElementById('schedulePanel');
+  const scheduleDateTime = document.getElementById('scheduleDateTime');
+  const scheduleRepeat = document.getElementById('scheduleRepeat');
+  const scheduleGoogleBtn = document.getElementById('scheduleGoogleBtn');
+  const scheduleIcsBtn = document.getElementById('scheduleIcsBtn');
+  const scheduleStatus = document.getElementById('scheduleStatus');
+
+  scheduleToggleBtn.addEventListener('click', ()=>{
+    const opening = schedulePanel.hidden;
+    schedulePanel.hidden = !opening;
+    if(opening && !scheduleDateTime.value){
+      // Default to the next upcoming quarter-hour, an hour from now.
+      const d = new Date(Date.now() + 60*60*1000);
+      d.setMinutes(Math.ceil(d.getMinutes()/15)*15, 0, 0);
+      const pad = n => String(n).padStart(2,'0');
+      scheduleDateTime.value = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate())
+        + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+  });
+
+  function getScheduleDetails(){
+    const code = channelInput.value.trim();
+    if(!code){
+      scheduleStatus.textContent = 'Enter a channel code above first';
+      channelInput.focus();
+      return null;
+    }
+    if(!scheduleDateTime.value){
+      scheduleStatus.textContent = 'Pick a date and time first';
+      return null;
+    }
+    const start = new Date(scheduleDateTime.value);
+    if(isNaN(start.getTime()) || start.getTime() < Date.now() - 60000){
+      scheduleStatus.textContent = 'Pick a time in the future';
+      return null;
+    }
+    const end = new Date(start.getTime() + 30*60000);
+    const link = location.origin + location.pathname + '?ch=' + encodeURIComponent(code);
+    const title = 'Waki-Taki: ' + code + ' channel';
+    const description = 'Join the channel: ' + link;
+    const repeat = scheduleRepeat.value;
+    scheduleStatus.textContent = '';
+    return {code, start, end, link, title, description, repeat};
+  }
+
+  function toUtcStamp(date){
+    const pad = n => String(n).padStart(2,'0');
+    return date.getUTCFullYear() + pad(date.getUTCMonth()+1) + pad(date.getUTCDate())
+      + 'T' + pad(date.getUTCHours()) + pad(date.getUTCMinutes()) + pad(date.getUTCSeconds()) + 'Z';
+  }
+
+  scheduleGoogleBtn.addEventListener('click', ()=>{
+    const d = getScheduleDetails();
+    if(!d) return;
+    let url = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+      + '&text=' + encodeURIComponent(d.title)
+      + '&dates=' + toUtcStamp(d.start) + '/' + toUtcStamp(d.end)
+      + '&details=' + encodeURIComponent(d.description);
+    if(d.repeat === 'daily') url += '&recur=' + encodeURIComponent('RRULE:FREQ=DAILY');
+    if(d.repeat === 'weekly') url += '&recur=' + encodeURIComponent('RRULE:FREQ=WEEKLY');
+    window.open(url, '_blank');
+  });
+
+  scheduleIcsBtn.addEventListener('click', ()=>{
+    const d = getScheduleDetails();
+    if(!d) return;
+    const esc = s => String(s).replace(/([,;])/g,'\\$1');
+    let rrule = '';
+    if(d.repeat === 'daily') rrule = 'RRULE:FREQ=DAILY\r\n';
+    if(d.repeat === 'weekly') rrule = 'RRULE:FREQ=WEEKLY\r\n';
+    const ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Waki-Taki//Schedule//EN\r\n'
+      + 'BEGIN:VEVENT\r\n'
+      + 'UID:' + Date.now() + '@waki-taki.com\r\n'
+      + 'DTSTAMP:' + toUtcStamp(new Date()) + '\r\n'
+      + 'DTSTART:' + toUtcStamp(d.start) + '\r\n'
+      + 'DTEND:' + toUtcStamp(d.end) + '\r\n'
+      + 'SUMMARY:' + esc(d.title) + '\r\n'
+      + 'DESCRIPTION:' + esc(d.description) + '\r\n'
+      + rrule
+      + 'END:VEVENT\r\nEND:VCALENDAR\r\n';
+    const blob = new Blob([ics], {type:'text/calendar'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'waki-taki-' + d.code + '.ics';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   });
 
 })();
