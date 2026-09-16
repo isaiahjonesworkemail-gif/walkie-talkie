@@ -724,6 +724,7 @@
   let channelCode = null;
   let hostId = null;
   let isHost = false;
+  let hasInitialized = false; // guards against reconnect() re-running the whole join setup
   let localStream = null;
   let calls = {};       // peerId -> MediaConnection
   let dataConns = {};   // peerId -> DataConnection
@@ -880,6 +881,8 @@
       peer = hostAttempt;
       myId = id;
       isHost = true;
+      if(hasInitialized) return; // this 'open' fired again after a reconnect — already set up
+      hasInitialized = true;
       roster[myId] = {name: myName, speaking:false};
       enterChannelScreen();
       wireIncoming();
@@ -902,6 +905,8 @@
     peer.on('open', id=>{
       myId = id;
       isHost = false;
+      if(hasInitialized) return; // this 'open' fired again after a reconnect — already set up
+      hasInitialized = true;
       roster[myId] = {name: myName, speaking:false};
       wireIncoming();
 
@@ -940,14 +945,27 @@
       dataConns[conn.peer] = conn;
       conn.on('data', handleData(conn.peer));
       conn.on('close', ()=> removeMember(conn.peer));
+    });
 
-      conn.on('open', ()=>{
-        if(isHost){
-          conn.on('data', d=>{}); // hello handled in handleData
-        }
-      });
+    // The connection to the signaling service (which helps devices find
+    // each other) can silently drop — most commonly when the phone
+    // backgrounds this tab, e.g. to go send the invite link as a text.
+    // Restore it automatically instead of requiring a manual leave/rejoin.
+    peer.on('disconnected', ()=>{
+      if(peer && !peer.destroyed){
+        try{ peer.reconnect(); }catch(err){ /* will retry on next visibility change */ }
+      }
     });
   }
+
+  // Belt-and-suspenders: also try to restore the connection the moment
+  // this tab comes back to the foreground, in case the 'disconnected'
+  // event itself got missed while the tab was suspended.
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible' && peer && !peer.destroyed && peer.disconnected){
+      try{ peer.reconnect(); }catch(err){ /* no-op */ }
+    }
+  });
 
   function handleData(fromId){
     return function(msg){
@@ -1070,7 +1088,7 @@
     if(localStream) localStream.getTracks().forEach(t=> t.stop());
     releaseWakeLock();
     if(resyncInterval){ clearInterval(resyncInterval); resyncInterval = null; }
-    roster = {}; calls = {}; dataConns = {}; peer=null; localStream=null; audioHealth = {};
+    roster = {}; calls = {}; dataConns = {}; peer=null; localStream=null; audioHealth = {}; hasInitialized = false;
     joinBtn.disabled = false;
     joinStatus.textContent = 'That channel already has ' + MAX_MEMBERS + ' people — try another code';
     channelScreen.classList.remove('active');
@@ -1165,7 +1183,7 @@
     releaseWakeLock();
     if(resyncInterval){ clearInterval(resyncInterval); resyncInterval = null; }
     document.querySelectorAll('audio[id^="audio-"]').forEach(a=> a.remove());
-    roster = {}; calls = {}; dataConns = {}; peer=null; audioHealth = {};
+    roster = {}; calls = {}; dataConns = {}; peer=null; audioHealth = {}; hasInitialized = false;
     joinBtn.disabled = false;
     joinStatus.textContent = 'Enter a name and channel to connect';
     channelScreen.classList.remove('active');
