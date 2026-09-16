@@ -120,11 +120,27 @@
     padding:2px 7px;
     border-radius:20px;
     white-space:nowrap;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
   }
   .talk-online-pill .dot{
     width:6px; height:6px; border-radius:50%;
     background:#4CAF6D;
     box-shadow: 0 0 6px 2px #4CAF6D, 0 0 2px #a9e8bd;
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+  .talk-online-pill.connecting{
+    background: rgba(232,163,61,0.18);
+    border-color: rgba(232,163,61,0.4);
+    color:#f0cf9a;
+  }
+  .talk-online-pill.connecting .dot{
+    background: var(--amber);
+    box-shadow: 0 0 6px 2px var(--amber);
+    animation: pulseDot 1.1s ease-in-out infinite;
+  }
+  @keyframes pulseDot{
+    0%, 100%{ opacity:1; }
+    50%{ opacity:0.35; }
   }
   .talk-meter{
     display:flex; align-items:center; justify-content:center;
@@ -456,6 +472,12 @@
   .member.speaking{ border-color:#6fc3ff; box-shadow:0 0 8px rgba(111,195,255,0.45); }
   .member.speaking .dot{ background:#6fc3ff; box-shadow: 0 0 6px #6fc3ff; }
   .member.self{ border-style:dashed; }
+  .member.connecting{ border-color: rgba(232,163,61,0.5); }
+  .member.connecting .dot{
+    background: var(--amber);
+    box-shadow: none;
+    animation: pulseDot 1.1s ease-in-out infinite;
+  }
 
   .footnote{
     text-align:center;
@@ -641,7 +663,7 @@
             <div class="talk-channel-name" id="channelNameDisplay">—</div>
             <div class="talk-channel-sub" id="channelSub">connecting…</div>
           </div>
-          <div class="talk-online-pill"><span class="dot"></span> Online</div>
+          <div class="talk-online-pill" id="onlinePill"><span class="dot"></span> <span id="onlineStatusText">Online</span></div>
         </div>
         <div class="talk-meter" id="meter">
           <div class="talk-meter-bar" style="height:20%"></div>
@@ -685,6 +707,8 @@
   const joinStatus = document.getElementById('joinStatus');
   const channelNameDisplay = document.getElementById('channelNameDisplay');
   const channelSub = document.getElementById('channelSub');
+  const onlinePill = document.getElementById('onlinePill');
+  const onlineStatusText = document.getElementById('onlineStatusText');
   const leaveBtn = document.getElementById('leaveBtn');
   const pttBtn = document.getElementById('pttBtn');
   const pttLabel = document.getElementById('pttLabel');
@@ -993,6 +1017,14 @@
     });
   }
 
+  let audioHealth = {}; // id -> boolean, LOCAL-only read of whether audio is actually connected to that peer
+
+  function setAudioHealth(id, ok){
+    audioHealth[id] = ok;
+    renderMembers();
+    updateGlobalStatus();
+  }
+
   function registerCall(id, call){
     calls[id] = call;
     call.on('stream', remoteStream=>{
@@ -1006,7 +1038,19 @@
       }
       audioEl.srcObject = remoteStream;
     });
-    call.on('close', ()=> removeMember(id));
+    call.on('close', ()=>{ delete audioHealth[id]; removeMember(id); });
+
+    // Track the REAL voice connection, not just the signaling handshake —
+    // this is what actually confirms two phones can hear each other.
+    const pc = call.peerConnection;
+    if(pc){
+      const update = ()=>{
+        const state = pc.iceConnectionState;
+        setAudioHealth(id, state === 'connected' || state === 'completed');
+      };
+      pc.addEventListener('iceconnectionstatechange', update);
+      update();
+    }
   }
 
   function removeMember(id){
@@ -1026,7 +1070,7 @@
     if(localStream) localStream.getTracks().forEach(t=> t.stop());
     releaseWakeLock();
     if(resyncInterval){ clearInterval(resyncInterval); resyncInterval = null; }
-    roster = {}; calls = {}; dataConns = {}; peer=null; localStream=null;
+    roster = {}; calls = {}; dataConns = {}; peer=null; localStream=null; audioHealth = {};
     joinBtn.disabled = false;
     joinStatus.textContent = 'That channel already has ' + MAX_MEMBERS + ' people — try another code';
     channelScreen.classList.remove('active');
@@ -1037,8 +1081,8 @@
     joinScreen.classList.remove('active');
     channelScreen.classList.add('active');
     channelNameDisplay.textContent = channelCode;
-    channelSub.textContent = 'connected as ' + myName;
     renderMembers();
+    updateGlobalStatus();
     requestWakeLock();
     if(resyncInterval) clearInterval(resyncInterval);
     resyncInterval = setInterval(()=>{
@@ -1051,13 +1095,28 @@
     }, 4000);
   }
 
+  function updateGlobalStatus(){
+    // Honest status: the host doesn't depend on any one guest to be "online"
+    // itself, but a guest genuinely isn't connected until its voice link
+    // to the host has actually finished negotiating — not just reached
+    // the signaling server.
+    const ok = isHost || !!audioHealth[hostId];
+    if(onlinePill) onlinePill.classList.toggle('connecting', !ok);
+    if(onlineStatusText) onlineStatusText.textContent = ok ? 'Online' : 'Connecting…';
+    channelSub.textContent = (ok ? 'connected as ' : 'connecting as ') + myName;
+  }
+
   function renderMembers(){
     const count = Object.keys(roster).length;
     membersLabel.textContent = 'ON CHANNEL · ' + count + ' / ' + MAX_MEMBERS;
     membersList.innerHTML = '';
     Object.entries(roster).forEach(([id, info])=>{
+      const audioOk = (id === myId) || !!audioHealth[id];
       const el = document.createElement('div');
-      el.className = 'member' + (info.speaking ? ' speaking' : '') + (id===myId ? ' self' : '');
+      el.className = 'member'
+        + (info.speaking ? ' speaking' : '')
+        + (id===myId ? ' self' : '')
+        + (!audioOk ? ' connecting' : '');
       el.innerHTML = '<span class="dot"></span><span>' + escapeHtml(info.name) + (id===myId? ' (you)':'') + '</span>';
       membersList.appendChild(el);
     });
@@ -1106,7 +1165,7 @@
     releaseWakeLock();
     if(resyncInterval){ clearInterval(resyncInterval); resyncInterval = null; }
     document.querySelectorAll('audio[id^="audio-"]').forEach(a=> a.remove());
-    roster = {}; calls = {}; dataConns = {}; peer=null;
+    roster = {}; calls = {}; dataConns = {}; peer=null; audioHealth = {};
     joinBtn.disabled = false;
     joinStatus.textContent = 'Enter a name and channel to connect';
     channelScreen.classList.remove('active');
