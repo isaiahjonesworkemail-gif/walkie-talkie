@@ -764,6 +764,23 @@
     channelInput.value = params.get('ch');
   }
 
+  // If this tab was discarded by the OS while backgrounded (common on iOS
+  // after a while in another app) and just reloaded from scratch, seamlessly
+  // rejoin whatever channel we were last in instead of stranding the person
+  // back on the join screen.
+  try{
+    const saved = sessionStorage.getItem('wt_session');
+    if(saved){
+      const savedSession = JSON.parse(saved);
+      if(savedSession && savedSession.channelCode){
+        nameInput.value = savedSession.myName || nameInput.value;
+        channelInput.value = savedSession.channelCode;
+        joinStatus.textContent = 'Reconnecting to your channel…';
+        joinChannel();
+      }
+    }
+  }catch(err){ /* corrupted/unavailable storage — falls back to the normal join screen */ }
+
   joinBtn.addEventListener('click', joinChannel);
   [nameInput, channelInput].forEach(el=>{
     el.addEventListener('keydown', e=>{ if(e.key==='Enter') joinChannel(); });
@@ -1087,6 +1104,8 @@
     if(peer) peer.destroy();
     if(localStream) localStream.getTracks().forEach(t=> t.stop());
     releaseWakeLock();
+    clearMediaSession();
+    try{ sessionStorage.removeItem('wt_session'); }catch(err){}
     if(resyncInterval){ clearInterval(resyncInterval); resyncInterval = null; }
     roster = {}; calls = {}; dataConns = {}; peer=null; localStream=null; audioHealth = {}; hasInitialized = false;
     joinBtn.disabled = false;
@@ -1102,6 +1121,8 @@
     renderMembers();
     updateGlobalStatus();
     requestWakeLock();
+    setupMediaSession();
+    try{ sessionStorage.setItem('wt_session', JSON.stringify({channelCode, myName})); }catch(err){}
     if(resyncInterval) clearInterval(resyncInterval);
     resyncInterval = setInterval(()=>{
       if(isHost){
@@ -1111,6 +1132,33 @@
         dataConns[hostId].send({type:'hello', id: myId, name: myName});
       }
     }, 4000);
+  }
+
+  // Registering a "now playing" media session is what tells iOS/Android
+  // this tab is allowed to keep playing audio after being backgrounded —
+  // the same mechanism a web-based music player relies on.
+  function setupMediaSession(){
+    if(!('mediaSession' in navigator)) return;
+    try{
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: 'Waki-Taki — ' + channelCode,
+        artist: 'Connected to channel',
+      });
+      navigator.mediaSession.playbackState = 'playing';
+      // No-op handlers still matter: their mere presence signals to the OS
+      // that this page is an active media session worth keeping alive.
+      ['play','pause'].forEach(action=>{
+        try{ navigator.mediaSession.setActionHandler(action, ()=>{}); }catch(err){}
+      });
+    }catch(err){ /* not supported on this browser — harmless */ }
+  }
+
+  function clearMediaSession(){
+    if(!('mediaSession' in navigator)) return;
+    try{
+      navigator.mediaSession.metadata = null;
+      navigator.mediaSession.playbackState = 'none';
+    }catch(err){}
   }
 
   function updateGlobalStatus(){
@@ -1181,6 +1229,8 @@
     if(peer) peer.destroy();
     if(localStream) localStream.getTracks().forEach(t=> t.stop());
     releaseWakeLock();
+    clearMediaSession();
+    try{ sessionStorage.removeItem('wt_session'); }catch(err){}
     if(resyncInterval){ clearInterval(resyncInterval); resyncInterval = null; }
     document.querySelectorAll('audio[id^="audio-"]').forEach(a=> a.remove());
     roster = {}; calls = {}; dataConns = {}; peer=null; audioHealth = {}; hasInitialized = false;
