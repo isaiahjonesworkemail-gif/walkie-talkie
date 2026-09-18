@@ -83,15 +83,37 @@
   }
   .talk-leave-btn{
     position:absolute; top:2%; right:4%;
-    background: rgba(10,12,14,0.5);
+    background: rgba(217,99,74,0.16);
     backdrop-filter: blur(3px);
-    border:1px solid rgba(217,99,74,0.55);
-    color:var(--text);
+    border:1px solid rgba(217,99,74,0.7);
+    color:#f3b8a8;
     font-family:inherit;
     font-size:11px;
     padding:5px 11px;
     border-radius:20px;
     cursor:pointer;
+    box-shadow: 0 0 10px 1px rgba(217,99,74,0.55), 0 0 20px 4px rgba(217,99,74,0.3);
+  }
+  .talk-refresh-btn{
+    position:absolute; top:calc(2% + 30px); right:4%;
+    background: rgba(232,163,61,0.16);
+    backdrop-filter: blur(3px);
+    border:1px solid rgba(232,163,61,0.7);
+    color:#f5dba8;
+    font-family:inherit;
+    font-size:11px;
+    padding:5px 11px;
+    border-radius:20px;
+    cursor:pointer;
+    box-shadow: 0 0 10px 1px rgba(232,163,61,0.5), 0 0 20px 4px rgba(232,163,61,0.28);
+    transition: transform 0.2s;
+  }
+  .talk-refresh-btn .spin-icon{
+    display:inline-block;
+    transition: transform 0.5s ease;
+  }
+  .talk-refresh-btn.spinning .spin-icon{
+    transform: rotate(360deg);
   }
   .talk-screen-panel{
     position:absolute;
@@ -656,6 +678,7 @@
       <img src="talk-bg.jpg" alt="" class="talk-bg">
 
       <button class="talk-leave-btn" id="leaveBtn">Leave</button>
+      <button class="talk-refresh-btn" id="refreshBtn"><span class="spin-icon">↩️</span> REFRESH</button>
 
       <div class="talk-screen-panel">
         <div class="talk-screen-row">
@@ -710,6 +733,7 @@
   const onlinePill = document.getElementById('onlinePill');
   const onlineStatusText = document.getElementById('onlineStatusText');
   const leaveBtn = document.getElementById('leaveBtn');
+  const refreshBtn = document.getElementById('refreshBtn');
   const pttBtn = document.getElementById('pttBtn');
   const pttLabel = document.getElementById('pttLabel');
   const meter = document.getElementById('meter');
@@ -1238,6 +1262,31 @@
     joinStatus.textContent = 'Enter a name and channel to connect';
     channelScreen.classList.remove('active');
     joinScreen.classList.add('active');
+  });
+
+  // ---- Refresh: manually sweep up missed updates without leaving ----
+  refreshBtn.addEventListener('click', ()=>{
+    if(!channelScreen.classList.contains('active')) return;
+
+    refreshBtn.classList.add('spinning');
+    setTimeout(()=> refreshBtn.classList.remove('spinning'), 500);
+
+    // If the signaling link quietly dropped (e.g. dormant in the background),
+    // restore it first.
+    if(peer && !peer.destroyed && peer.disconnected){
+      try{ peer.reconnect(); }catch(err){}
+    }
+
+    // Force an immediate re-sync instead of waiting for the periodic timer.
+    if(isHost){
+      broadcastRoster();
+    } else if(dataConns[hostId] && dataConns[hostId].open){
+      dataConns[hostId].send({type:'hello', id: myId, name: myName});
+    }
+
+    recoverActiveMicIfNeeded();
+    renderMembers();
+    updateGlobalStatus();
   });
 
   // ---- Invite link ----
