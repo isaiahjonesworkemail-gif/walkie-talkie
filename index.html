@@ -205,6 +205,14 @@
   .talk-ptt-hit.active::before{
     box-shadow: 0 0 0 10px rgba(79,209,255,0.28), 0 0 34px 10px rgba(79,209,255,0.6);
   }
+  .talk-ptt-hit.locked::before{
+    box-shadow: 0 0 0 10px rgba(232,163,61,0.3), 0 0 34px 10px rgba(232,163,61,0.65);
+    animation: lockPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes lockPulse{
+    0%, 100%{ opacity:1; }
+    50%{ opacity:0.75; }
+  }
   .talk-ptt-hit svg{
     width:34%; height:34%;
     fill:#ffffff;
@@ -1222,11 +1230,13 @@
   }
 
   // ---- Push to talk ----
-  function setTransmitting(state){
+  function setTransmitting(state, locked){
     if(!localStream) return;
     localStream.getAudioTracks().forEach(t=> t.enabled = state);
     pttBtn.classList.toggle('active', state);
-    pttLabel.textContent = state ? 'Transmitting…' : 'Press and hold — release to listen';
+    pttBtn.classList.toggle('locked', !!locked);
+    pttLabel.textContent = !state ? 'Press and hold — release to listen'
+      : (locked ? 'Locked — tap to release' : 'Transmitting…');
     meter.classList.toggle('live', state);
     if(roster[myId]) roster[myId].speaking = state;
     renderMembers();
@@ -1234,11 +1244,38 @@
     Object.values(dataConns).forEach(c=> c.open && c.send(msg));
   }
 
+  // Double-tap locks the mic open (hands-free) so someone can keep talking
+  // without holding the button down; tapping again while locked releases it.
+  let pttLocked = false;
+  let lastPttTapTime = 0;
+  const DOUBLE_TAP_MS = 350;
+
   ['mousedown','touchstart'].forEach(evt=>{
-    pttBtn.addEventListener(evt, e=>{ e.preventDefault(); setTransmitting(true); });
+    pttBtn.addEventListener(evt, e=>{
+      e.preventDefault();
+      if(pttLocked){
+        // Any tap while locked releases it.
+        pttLocked = false;
+        setTransmitting(false, false);
+        return;
+      }
+      const now = Date.now();
+      if(now - lastPttTapTime < DOUBLE_TAP_MS){
+        // Second tap of a double-tap — engage the lock.
+        lastPttTapTime = 0;
+        pttLocked = true;
+        setTransmitting(true, true);
+        return;
+      }
+      lastPttTapTime = now;
+      setTransmitting(true, false);
+    });
   });
   ['mouseup','mouseleave','touchend','touchcancel'].forEach(evt=>{
-    pttBtn.addEventListener(evt, e=>{ setTransmitting(false); });
+    pttBtn.addEventListener(evt, e=>{
+      if(pttLocked) return; // stay transmitting until tapped again
+      setTransmitting(false, false);
+    });
   });
 
   // Spacebar as PTT on desktop
