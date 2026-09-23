@@ -248,6 +248,7 @@
     font-size: clamp(8px, 2.2vw, 10.5px);
     color:#cfe3f0;
     padding:5px 6px;
+    line-height:1.5;
   }
   .talk-footer{
     text-align:center;
@@ -719,7 +720,7 @@
       <div class="talk-bottom-panel">
         <div class="talk-members-label" id="membersLabel">ON CHANNEL</div>
         <div class="talk-members" id="membersList"></div>
-        <div class="talk-hint-bar" id="pttLabel">Press and hold — release to listen</div>
+        <div class="talk-hint-bar" id="pttLabel">Press &amp; Hold - or - Double Tap<br>Mic</div>
       </div>
     </div>
 
@@ -1235,7 +1236,7 @@
     localStream.getAudioTracks().forEach(t=> t.enabled = state);
     pttBtn.classList.toggle('active', state);
     pttBtn.classList.toggle('locked', !!locked);
-    pttLabel.textContent = !state ? 'Press and hold — release to listen'
+    pttLabel.innerHTML = !state ? 'Press &amp; Hold - or - Double Tap<br>Mic'
       : (locked ? 'Locked — tap to release' : 'Transmitting…');
     meter.classList.toggle('live', state);
     if(roster[myId]) roster[myId].speaking = state;
