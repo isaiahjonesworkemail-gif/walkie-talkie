@@ -432,6 +432,21 @@
     background: rgba(76,175,109,0.22);
     box-shadow: 0 0 12px 2px rgba(76,175,109,0.5), 0 0 22px 5px rgba(76,175,109,0.28);
   }
+  .location-toggle{
+    display:flex;
+    align-items:flex-start;
+    gap:8px;
+    margin: 2px 0 14px 0;
+    font-size:11.5px;
+    color:var(--text-dim);
+    line-height:1.4;
+    cursor:pointer;
+  }
+  .location-toggle input{
+    margin-top:2px;
+    accent-color: var(--amber);
+    flex-shrink:0;
+  }
   .or-divider{
     display:flex;
     align-items:center;
@@ -624,6 +639,11 @@
             <input type="text" id="channelInput" placeholder="sittin-on-the-$" maxlength="24">
           </div>
 
+          <label class="location-toggle">
+            <input type="checkbox" id="shareLocationToggle">
+            <span>Share my location with this channel (off by default — distance only, never a map)</span>
+          </label>
+
           <button class="btn btn-primary" id="joinBtn">Join channel</button>
           <div class="status-line" id="joinStatus">Enter a name and channel to connect</div>
 
@@ -742,6 +762,7 @@
   const channelScreen = document.getElementById('channelScreen');
   const nameInput = document.getElementById('nameInput');
   const channelInput = document.getElementById('channelInput');
+  const shareLocationToggle = document.getElementById('shareLocationToggle');
   const joinBtn = document.getElementById('joinBtn');
   const joinStatus = document.getElementById('joinStatus');
   const channelNameDisplay = document.getElementById('channelNameDisplay');
@@ -765,6 +786,10 @@
   let hostId = null;
   let isHost = false;
   let hasInitialized = false; // guards against reconnect() re-running the whole join setup
+  let shareLocation = false;
+  let myLocation = null;       // {lat, lon}
+  let locations = {};          // peerId -> {lat, lon, ts} — LOCAL only, never sent anywhere but this channel
+  let locationInterval = null;
   let localStream = null;
   let calls = {};       // peerId -> MediaConnection
   let dataConns = {};   // peerId -> DataConnection
@@ -910,6 +935,7 @@
     myName = name;
     channelCode = code;
     hostId = 'wt-' + slug(code);
+    shareLocation = !!shareLocationToggle.checked;
 
     joinBtn.disabled = true;
     joinStatus.textContent = 'Requesting microphone…';
@@ -1068,6 +1094,13 @@
           registerCall(msg.id, call);
         }
       }
+      else if(msg.type === 'location'){
+        // Opt-in only, peer-to-peer only — never stored, never sent anywhere
+        // but to people already in this channel.
+        locations[msg.id] = {lat: msg.lat, lon: msg.lon, ts: Date.now()};
+        renderMembers();
+        if(isHost) broadcastToAllExcept(fromId, msg);
+      }
     };
   }
 
@@ -1145,6 +1178,7 @@
     if(localStream) localStream.getTracks().forEach(t=> t.stop());
     releaseWakeLock();
     clearMediaSession();
+    stopLocationSharing();
     try{ sessionStorage.removeItem('wt_session'); }catch(err){}
     if(resyncInterval){ clearInterval(resyncInterval); resyncInterval = null; }
     roster = {}; calls = {}; dataConns = {}; peer=null; localStream=null; audioHealth = {}; hasInitialized = false;
@@ -1172,6 +1206,37 @@
         dataConns[hostId].send({type:'hello', id: myId, name: myName});
       }
     }, 4000);
+    if(shareLocation) startLocationSharing();
+  }
+
+  // ---- Location sharing: strictly opt-in, peer-to-peer only, never stored ----
+  function sendLocationUpdate(){
+    if(!myLocation) return;
+    const msg = {type:'location', id: myId, lat: myLocation.lat, lon: myLocation.lon};
+    Object.values(dataConns).forEach(c=> c.open && c.send(msg));
+  }
+
+  function startLocationSharing(){
+    if(!navigator.geolocation || locationInterval) return;
+    const update = ()=>{
+      navigator.geolocation.getCurrentPosition(
+        pos=>{
+          myLocation = {lat: pos.coords.latitude, lon: pos.coords.longitude};
+          sendLocationUpdate();
+          renderMembers();
+        },
+        err=>{ /* permission denied or unavailable — distance just won't show */ },
+        {enableHighAccuracy:false, maximumAge:30000, timeout:10000}
+      );
+    };
+    update(); // get a first fix right away
+    locationInterval = setInterval(update, 45000); // battery-friendly refresh
+  }
+
+  function stopLocationSharing(){
+    if(locationInterval){ clearInterval(locationInterval); locationInterval = null; }
+    myLocation = null;
+    locations = {};
   }
 
   // Registering a "now playing" media session is what tells iOS/Android
@@ -1223,13 +1288,45 @@
         + (info.speaking ? ' speaking' : '')
         + (id===myId ? ' self' : '')
         + (!audioOk ? ' connecting' : '');
-      el.innerHTML = '<span class="dot"></span><span>' + escapeHtml(info.name) + (id===myId? ' (you)':'') + '</span>';
+      let label = escapeHtml(info.name) + (id===myId? ' (you)':'');
+      if(id !== myId && myLocation && locations[id]){
+        const readout = formatDistance(myLocation, locations[id]);
+        if(readout) label += ' <span class="member-dist">· ' + readout + '</span>';
+      }
+      el.innerHTML = '<span class="dot"></span><span>' + label + '</span>';
       membersList.appendChild(el);
     });
   }
 
   function escapeHtml(s){
     return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---- Distance/direction between two {lat, lon} points, no map involved ----
+  function haversineMiles(a, b){
+    const R = 3958.8; // miles
+    const toRad = d => d * Math.PI / 180;
+    const dLat = toRad(b.lat - a.lat);
+    const dLon = toRad(b.lon - a.lon);
+    const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
+  }
+
+  function bearingCardinal(a, b){
+    const toRad = d => d * Math.PI / 180;
+    const y = Math.sin(toRad(b.lon - a.lon)) * Math.cos(toRad(b.lat));
+    const x = Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat)) - Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(toRad(b.lon - a.lon));
+    const deg = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    const dirs = ['N','NE','E','SE','S','SW','W','NW'];
+    return dirs[Math.round(deg / 45) % 8];
+  }
+
+  function formatDistance(myLoc, theirLoc){
+    if(!theirLoc || typeof theirLoc.lat !== 'number') return '';
+    const miles = haversineMiles(myLoc, theirLoc);
+    const dir = bearingCardinal(myLoc, theirLoc);
+    const distText = miles < 0.1 ? 'nearby' : miles.toFixed(miles < 10 ? 1 : 0) + ' mi';
+    return distText === 'nearby' ? 'nearby' : distText + ' ' + dir;
   }
 
   // ---- Push to talk ----
@@ -1299,6 +1396,7 @@
     if(localStream) localStream.getTracks().forEach(t=> t.stop());
     releaseWakeLock();
     clearMediaSession();
+    stopLocationSharing();
     try{ sessionStorage.removeItem('wt_session'); }catch(err){}
     if(resyncInterval){ clearInterval(resyncInterval); resyncInterval = null; }
     document.querySelectorAll('audio[id^="audio-"]').forEach(a=> a.remove());
