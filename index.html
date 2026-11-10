@@ -786,10 +786,22 @@
   let hostId = null;
   let isHost = false;
   let hasInitialized = false; // guards against reconnect() re-running the whole join setup
+  // ---- Location feature master switch ----
+  // OFF for now. Everything location-related below stays in place but dormant.
+  // To bring it back: set this to true AND restore the "Location sharing
+  // (optional)" section of privacy.html (kept there as an HTML comment) so the
+  // policy matches what the app actually does.
+  const LOCATION_FEATURE_ENABLED = false;
+
   let shareLocation = false;
   let myLocation = null;       // {lat, lon}
   let locations = {};          // peerId -> {lat, lon, ts} — LOCAL only, never sent anywhere but this channel
   let locationInterval = null;
+  // Hide the opt-in checkbox from the join screen while the feature is off.
+  (function(){
+    const row = shareLocationToggle.closest('.location-toggle');
+    if(row) row.style.display = LOCATION_FEATURE_ENABLED ? '' : 'none';
+  })();
   let localStream = null;
   let calls = {};       // peerId -> MediaConnection
   let dataConns = {};   // peerId -> DataConnection
@@ -935,7 +947,7 @@
     myName = name;
     channelCode = code;
     hostId = 'wt-' + slug(code);
-    shareLocation = !!shareLocationToggle.checked;
+    shareLocation = LOCATION_FEATURE_ENABLED && !!shareLocationToggle.checked;
 
     joinBtn.disabled = true;
     joinStatus.textContent = 'Requesting microphone…';
@@ -1095,6 +1107,8 @@
         }
       }
       else if(msg.type === 'location'){
+        // Feature is switched off: ignore entirely — don't store it, don't relay it.
+        if(!LOCATION_FEATURE_ENABLED) return;
         // Opt-in only, peer-to-peer only — never stored, never sent anywhere
         // but to people already in this channel.
         locations[msg.id] = {lat: msg.lat, lon: msg.lon, ts: Date.now()};
@@ -1211,13 +1225,13 @@
 
   // ---- Location sharing: strictly opt-in, peer-to-peer only, never stored ----
   function sendLocationUpdate(){
-    if(!myLocation) return;
+    if(!LOCATION_FEATURE_ENABLED || !myLocation) return;
     const msg = {type:'location', id: myId, lat: myLocation.lat, lon: myLocation.lon};
     Object.values(dataConns).forEach(c=> c.open && c.send(msg));
   }
 
   function startLocationSharing(){
-    if(!navigator.geolocation || locationInterval) return;
+    if(!LOCATION_FEATURE_ENABLED || !navigator.geolocation || locationInterval) return;
     const update = ()=>{
       navigator.geolocation.getCurrentPosition(
         pos=>{
